@@ -1,7 +1,7 @@
 // app/chat/[personaId]/page.tsx
 "use client"
 
-import { useState, useEffect, useCallback, useMemo, useRef } from "react"
+import { useState, useEffect, useCallback, useMemo, useRef, use } from "react"
 import { useRouter } from "next/navigation"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import { useToast } from "@/components/ui/use-toast"
@@ -14,10 +14,11 @@ import { useMobile } from "@/hooks/use-mobile"
 import { TooltipProvider } from "@/components/ui/tooltip"
 
 // Import our new components
-import { Sidebar } from "@/components/features/chat/sidebar"
 import { ChatHeader } from "@/components/features/chat/chat-header"
 import { ChatMessages } from "@/components/features/chat/chat-messages"
 import { ChatInput } from "@/components/features/chat/chat-input"
+import type { Message } from "@/lib/types"
+import { useChatContext } from "@/components/features/chat/ChatContext"
 
 // Types
 interface AppState {
@@ -31,14 +32,17 @@ interface AppState {
   isMobileMenuOpen: boolean
 }
 
-export default function ChatPage({ params }: { params: { personaId: string } }) {
+export default function ChatPage({ params }: { params: Promise<{ personaId: string }> }) {
   const router = useRouter()
   const { toast } = useToast()
   const { user, logout } = useAuth()
   const isMobile = useMobile()
   
+  // Unwrap params using React.use()
+  const resolvedParams = use(params)
+  
   // Memoize personaId
-  const personaId = useMemo(() => params.personaId, [params.personaId])
+  const personaId = useMemo(() => resolvedParams.personaId, [resolvedParams.personaId])
   
   // Unified state management
   const [state, setState] = useState<AppState>({
@@ -60,6 +64,8 @@ export default function ChatPage({ params }: { params: { personaId: string } }) 
   const { messages, input, setInput, handleSubmit, isLoading, clearMessages, addMessage } = useChat({
     personaId: personaId,
   })
+  
+  const { personas, setPersonas, currentPersonaId, setCurrentPersonaId } = useChatContext();
   
   // Redirect if no user
   useEffect(() => {
@@ -97,6 +103,8 @@ export default function ChatPage({ params }: { params: { personaId: string } }) 
           return
         }
         
+        setPersonas(userAssignedPersonas)
+        setCurrentPersonaId(personaId)
         setState(prev => ({
           ...prev,
           personas: userAssignedPersonas,
@@ -122,7 +130,7 @@ export default function ChatPage({ params }: { params: { personaId: string } }) 
       isMounted = false
       controller.abort()
     }
-  }, [user, personaId, state.isInitialized, toast, router])
+  }, [user, personaId, state.isInitialized, toast, router, setPersonas, setCurrentPersonaId])
   
   // Handle persona switching
   useEffect(() => {
@@ -269,37 +277,14 @@ export default function ChatPage({ params }: { params: { personaId: string } }) 
   // Early return if no user
   if (!user) return null
   
-  // Mobile sidebar content
-  const sidebarContent = (
-    <Sidebar
-      personas={state.personas}
-      currentPersonaId={personaId}
-      isCollapsed={state.sidebarCollapsed}
-      onToggleCollapse={handleToggleSidebar}
-      onPersonaSelect={handlePersonaSelect}
-      onAddPersona={handleAddPersona}
-      onRemovePersona={handleRemovePersona}
-    />
-  )
-  
   return (
     <TooltipProvider>
       <div className="flex h-screen bg-background">
-        {/* Desktop Sidebar */}
-        {!isMobile && (
-          <div className={cn(
-            "h-full transition-all duration-300 ease-in-out",
-            state.sidebarCollapsed ? "w-16" : "w-80"
-          )}>
-            {sidebarContent}
-          </div>
-        )}
-        
         {/* Mobile Sidebar */}
         {isMobile && (
           <Sheet open={state.isMobileMenuOpen} onOpenChange={(open) => setState(prev => ({ ...prev, isMobileMenuOpen: open }))}>
             <SheetContent side="left" className="p-0 w-80">
-              {sidebarContent}
+              {/* Sidebar content will be handled by context or layout */}
             </SheetContent>
           </Sheet>
         )}
@@ -334,7 +319,7 @@ export default function ChatPage({ params }: { params: { personaId: string } }) 
             isLoading={isLoading}
             isRecording={state.isRecording}
             onInputChange={setInput}
-            onSubmit={handleSubmit}
+            onSubmit={e => { handleSubmit(e as React.FormEvent<HTMLFormElement>); }}
             onFileUpload={handleFileUpload}
             onAudioMessage={handleAudioMessage}
             onSetIsRecording={handleSetIsRecording}
