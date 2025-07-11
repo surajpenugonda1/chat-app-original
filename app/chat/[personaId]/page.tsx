@@ -14,8 +14,8 @@ import { useMobile } from "@/hooks/use-mobile"
 import { TooltipProvider } from "@/components/ui/tooltip"
 
 // Import our new components
-import { ChatHeader } from "@/components/features/chat/chat-header"
-import { ChatMessages } from "@/components/features/chat/chat-messages"
+import { ChatHeader, ChatHeaderSkeleton } from "@/components/features/chat/chat-header"
+import { ChatMessages, MessageSkeleton } from "@/components/features/chat/chat-messages"
 import { ChatInput } from "@/components/features/chat/chat-input"
 import type { Message } from "@/lib/types"
 import { useChatContext } from "@/components/features/chat/ChatContext"
@@ -291,28 +291,64 @@ export default function ChatPage({ params }: { params: Promise<{ personaId: stri
         
         {/* Main chat area */}
         <div className="flex flex-col flex-1 min-w-0">
-          {/* Header */}
-          <ChatHeader
-            currentPersona={state.currentPersona}
-            isMobile={isMobile}
-            isCollapsed={state.sidebarCollapsed}
-            onToggleSidebar={!isMobile ? handleToggleSidebar : undefined}
-            onMobileMenuClick={isMobile ? handleMobileMenuClick : undefined}
-            onBackToPersonas={handleBackToPersonas}
-            onClearChat={handleClearChat}
-            onLogout={handleLogout}
-          />
-          
-          {/* Messages */}
-          <ChatMessages
-            messages={messages}
-            currentPersona={state.currentPersona}
-            isLoading={state.isLoadingMessages}
-            copiedMessageId={state.copiedMessageId}
-            onCopyMessage={handleCopyMessage}
-            onSampleQuestionClick={handleSampleQuestionClick}
-          />
-          
+          {/* Header with fade */}
+          <div className="relative h-16">
+            <div
+              className={cn(
+                "absolute inset-0 w-full h-full transition-opacity duration-300",
+                state.isLoadingMessages ? "opacity-100 z-10" : "opacity-0 pointer-events-none"
+              )}
+            >
+              <ChatHeaderSkeleton />
+            </div>
+            <div
+              className={cn(
+                "absolute inset-0 w-full h-full transition-opacity duration-300",
+                state.isLoadingMessages ? "opacity-0 pointer-events-none" : "opacity-100 z-20"
+              )}
+            >
+              <ChatHeader
+                currentPersona={state.currentPersona}
+                isMobile={isMobile}
+                isCollapsed={state.sidebarCollapsed}
+                onToggleSidebar={!isMobile ? handleToggleSidebar : undefined}
+                onMobileMenuClick={isMobile ? handleMobileMenuClick : undefined}
+                onBackToPersonas={handleBackToPersonas}
+                onClearChat={handleClearChat}
+                onLogout={handleLogout}
+              />
+            </div>
+          </div>
+          {/* Messages with fade */}
+          <div className="relative flex-1 min-h-0">
+            <div
+              className={cn(
+                "absolute inset-0 w-full h-full transition-opacity duration-300 flex flex-col",
+                state.isLoadingMessages ? "opacity-100 z-10" : "opacity-0 pointer-events-none"
+              )}
+            >
+              <div className="space-y-4 max-w-2xl mx-auto w-full p-6">
+                <MessageSkeleton />
+                <MessageSkeleton />
+                <MessageSkeleton />
+              </div>
+            </div>
+            <div
+              className={cn(
+                "absolute inset-0 w-full h-full transition-opacity duration-300 flex flex-col",
+                state.isLoadingMessages ? "opacity-0 pointer-events-none" : "opacity-100 z-20"
+              )}
+            >
+              <ChatMessages
+                messages={messages}
+                currentPersona={state.currentPersona}
+                isLoading={state.isLoadingMessages}
+                copiedMessageId={state.copiedMessageId}
+                onCopyMessage={handleCopyMessage}
+                onSampleQuestionClick={handleSampleQuestionClick}
+              />
+            </div>
+          </div>
           {/* Input */}
           <ChatInput
             input={input}

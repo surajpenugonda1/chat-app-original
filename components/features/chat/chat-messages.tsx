@@ -19,8 +19,7 @@ interface ChatMessagesProps {
   onSampleQuestionClick: (question: string) => void
 }
 
-// Loading skeleton component
-const MessageSkeleton = memo(() => (
+export const MessageSkeleton = memo(() => (
   <div className="flex gap-3 max-w-[85%] mr-auto mb-4 animate-in fade-in-0 duration-300">
     <div className="h-8 w-8 rounded-full bg-muted animate-pulse" />
     <div className="flex flex-col gap-1 flex-1">

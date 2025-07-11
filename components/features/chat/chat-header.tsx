@@ -117,3 +117,16 @@ export const ChatHeader = memo(({
 })
 
 ChatHeader.displayName = "ChatHeader"
+
+export const ChatHeaderSkeleton = () => (
+  <header className="sticky top-0 z-10 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 animate-pulse">
+    <div className="flex h-16 items-center px-4 gap-3">
+      <div className="h-10 w-10 rounded-full bg-muted" />
+      <div className="flex flex-col gap-2 flex-1 min-w-0">
+        <div className="h-4 w-32 bg-muted rounded" />
+        <div className="h-3 w-24 bg-muted-foreground/20 rounded" />
+      </div>
+      <div className="h-8 w-8 rounded-full bg-muted ml-auto" />
+    </div>
+  </header>
+)
