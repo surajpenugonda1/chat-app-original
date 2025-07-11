@@ -57,11 +57,11 @@ export async function fetchPersonas(params: PersonasListParams = {}): Promise<Pe
   } catch (error: any) {
     console.error("Fetch personas error:", error)
 
-    // Fallback to mock data if API is not available
-    if (error.status === 0 || error.status >= 500) {
-      console.warn("API unavailable, using mock personas")
-      return getMockPersonas()
-    }
+    // // Fallback to mock data if API is not available
+    // if (error.status === 0 || error.status >= 500) {
+    //   console.warn("API unavailable, using mock personas")
+    //   return getMockPersonas()
+    // }
 
     throw new Error(error.message || "Failed to fetch personas")
   }
