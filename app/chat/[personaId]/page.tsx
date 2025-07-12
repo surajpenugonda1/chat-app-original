@@ -83,7 +83,9 @@ export default function ChatPage({ params }: { params: Promise<{ personaId: stri
     handleSubmit, 
     sendMessage,
     streamAIReply,
+    stopStreaming,
     isLoading, 
+    isStreaming,
     isLoadingOlder,
     clearMessages, 
     addMessage,
@@ -575,9 +577,11 @@ export default function ChatPage({ params }: { params: Promise<{ personaId: stri
           <ChatInput
             input={input}
             isLoading={isLoading}
+            isStreaming={isStreaming}
             isRecording={state.isRecording}
             onInputChange={setInput}
             onSubmit={(e) => handleSubmit(e as React.FormEvent<HTMLFormElement>)}
+            onStopStreaming={stopStreaming}
             onFileUpload={handleFileUpload}
             onAudioMessage={handleAudioMessage}
             onSetIsRecording={handleSetIsRecording}

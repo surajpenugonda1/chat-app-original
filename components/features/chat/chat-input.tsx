@@ -5,16 +5,18 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Separator } from "@/components/ui/separator"
 import { Badge } from "@/components/ui/badge"
-import { Send, Paperclip, X, FileText, Image, Music, Video } from "lucide-react"
+import { Send, Paperclip, X, FileText, Image, Music, Video, Square } from "lucide-react"
 import { AudioRecorder } from "@/components/audio-recorder"
 import { cn } from "@/lib/utils"
 
 interface ChatInputProps {
   input: string
   isLoading: boolean
+  isStreaming?: boolean
   isRecording: boolean
   onInputChange: (value: string) => void
   onSubmit: (e: FormEvent) => void
+  onStopStreaming?: () => void
   onFileUpload: (files: FileList) => void
   onAudioMessage: (audioBlob: Blob) => void
   onSetIsRecording: (recording: boolean) => void
@@ -60,9 +62,11 @@ const formatFileSize = (bytes: number): string => {
 export const ChatInput = memo(({
   input,
   isLoading,
+  isStreaming = false,
   isRecording,
   onInputChange,
   onSubmit,
+  onStopStreaming,
   onFileUpload,
   onAudioMessage,
   onSetIsRecording,
@@ -112,7 +116,7 @@ export const ChatInput = memo(({
     }
   }, [selectedFiles, input, onFileUpload, onSubmit, onInputChange])
 
-  const canSend = (input.trim() || selectedFiles.length > 0) && !isLoading && !isRecording
+  const canSend = (input.trim() || selectedFiles.length > 0) && !isLoading && !isRecording && !isStreaming
 
   return (
     <>
@@ -156,11 +160,12 @@ export const ChatInput = memo(({
                 placeholder={selectedFiles.length > 0 ? "Add a message (optional)..." : "Type your message..."}
                 value={input}
                 onChange={(e) => onInputChange(e.target.value)}
-                disabled={isLoading}
+                disabled={isLoading || isStreaming}
                 className={cn(
                   "pr-20 min-h-[44px] resize-none",
                   "transition-all duration-200",
-                  "focus:ring-2 focus:ring-primary/20"
+                  "focus:ring-2 focus:ring-primary/20",
+                  isStreaming && "opacity-50 cursor-not-allowed"
                 )}
                 onKeyDown={handleKeyDown}
               />
@@ -179,10 +184,11 @@ export const ChatInput = memo(({
                   size="icon"
                   className={cn(
                     "h-8 w-8 transition-all duration-200 hover:scale-110",
-                    selectedFiles.length > 0 && "text-primary"
+                    selectedFiles.length > 0 && "text-primary",
+                    isStreaming && "opacity-50 cursor-not-allowed"
                   )}
                   onClick={() => fileInputRef.current?.click()}
-                  disabled={isLoading}
+                  disabled={isLoading || isStreaming}
                 >
                   <Paperclip className="h-4 w-4" />
                 </Button>
@@ -190,32 +196,44 @@ export const ChatInput = memo(({
                   onRecordingComplete={onAudioMessage}
                   isRecording={isRecording}
                   setIsRecording={onSetIsRecording}
+                  disabled={isStreaming}
                 />
               </div>
             </div>
             <Button
-              type="submit"
+              type={isStreaming ? "button" : "submit"}
               size="icon"
-              disabled={!canSend}
+              disabled={!canSend && !isStreaming}
+              onClick={isStreaming ? onStopStreaming : undefined}
               className={cn(
                 "h-[44px] w-[44px] shrink-0",
                 "transition-all duration-200",
                 "hover:scale-105 active:scale-95",
-                !canSend && "opacity-50"
+                isStreaming && "bg-destructive hover:bg-destructive/90 text-destructive-foreground",
+                !canSend && !isStreaming && "opacity-50"
               )}
             >
-              <Send className={cn(
-                "h-4 w-4 transition-transform duration-200",
-                isLoading && "animate-pulse"
-              )} />
+              {isStreaming ? (
+                <Square className={cn(
+                  "h-4 w-4 transition-transform duration-200",
+                  "animate-pulse"
+                )} />
+              ) : (
+                <Send className={cn(
+                  "h-4 w-4 transition-transform duration-200",
+                  isLoading && "animate-pulse"
+                )} />
+              )}
             </Button>
           </form>
           
           <div className="flex items-center justify-center mt-2">
             <p className="text-xs text-muted-foreground animate-in fade-in-0 duration-500">
-              {selectedFiles.length > 0 
-                ? `${selectedFiles.length} file(s) selected • Press Enter to send` 
-                : "Press Enter to send, Shift+Enter for new line"
+              {isStreaming 
+                ? "AI is responding... Click the stop button to cancel"
+                : selectedFiles.length > 0 
+                  ? `${selectedFiles.length} file(s) selected • Press Enter to send` 
+                  : "Press Enter to send, Shift+Enter for new line"
               }
             </p>
           </div>

@@ -3,19 +3,23 @@
 import { useState, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Mic, Square } from "lucide-react"
+import { cn } from "@/lib/utils"
 
 interface AudioRecorderProps {
   onRecordingComplete: (audioBlob: Blob) => void
   isRecording: boolean
   setIsRecording: (recording: boolean) => void
+  disabled?: boolean
 }
 
-export function AudioRecorder({ onRecordingComplete, isRecording, setIsRecording }: AudioRecorderProps) {
+export function AudioRecorder({ onRecordingComplete, isRecording, setIsRecording, disabled = false }: AudioRecorderProps) {
   const [recordingTime, setRecordingTime] = useState(0)
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const timerRef = useRef<NodeJS.Timeout | null>(null)
 
   const startRecording = async () => {
+    if (disabled) return
+    
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
       const mediaRecorder = new MediaRecorder(stream)
@@ -85,7 +89,17 @@ export function AudioRecorder({ onRecordingComplete, isRecording, setIsRecording
   }
 
   return (
-    <Button type="button" variant="ghost" size="icon" className="h-8 w-8" onClick={startRecording}>
+    <Button 
+      type="button" 
+      variant="ghost" 
+      size="icon" 
+      className={cn(
+        "h-8 w-8",
+        disabled && "opacity-50 cursor-not-allowed"
+      )} 
+      onClick={startRecording}
+      disabled={disabled}
+    >
       <Mic className="h-4 w-4" />
     </Button>
   )

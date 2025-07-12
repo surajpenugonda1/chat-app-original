@@ -35,6 +35,7 @@ export function useChat({ conversationId, initialLimit = 30 }: UseChatProps) {
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState("")
   const [isLoading, setIsLoading] = useState(false)
+  const [isStreaming, setIsStreaming] = useState(false)
   const [isLoadingOlder, setIsLoadingOlder] = useState(false)
   const [pagination, setPagination] = useState<PaginationInfo>({
     hasNext: false,
@@ -46,6 +47,7 @@ export function useChat({ conversationId, initialLimit = 30 }: UseChatProps) {
   // Use refs to avoid stale closures
   const messagesRef = useRef<Message[]>(messages)
   const abortControllerRef = useRef<AbortController | null>(null)
+  const streamAbortControllerRef = useRef<AbortController | null>(null)
 
   // Keep messages ref in sync
   messagesRef.current = messages
@@ -176,7 +178,7 @@ export function useChat({ conversationId, initialLimit = 30 }: UseChatProps) {
         setInput("")
         
         // Start streaming AI reply
-        await streamAIReply(content.trim(), conversationId)
+        await streamAIReply(content.trim(), conversationId.toString())
         
       } catch (error: any) {
         if (error.name === 'AbortError') {
@@ -221,8 +223,25 @@ export function useChat({ conversationId, initialLimit = 30 }: UseChatProps) {
     [conversationId, isLoading, setInput, setMessages]
   )
 
+  const stopStreaming = useCallback(() => {
+    if (streamAbortControllerRef.current) {
+      streamAbortControllerRef.current.abort()
+      streamAbortControllerRef.current = null
+    }
+    setIsStreaming(false)
+  }, [])
+
   const streamAIReply = useCallback(
     async (lastMessage: string, conversationId: string) => {
+      // Cancel any existing stream
+      if (streamAbortControllerRef.current) {
+        streamAbortControllerRef.current.abort()
+      }
+      
+      // Create new abort controller for this stream
+      streamAbortControllerRef.current = new AbortController()
+      setIsStreaming(true)
+      
       // Add a "thinking" message first
       const thinkingMessageId = `thinking-${Date.now()}`
       const thinkingMessage: Message = {
@@ -242,6 +261,11 @@ export function useChat({ conversationId, initialLimit = 30 }: UseChatProps) {
           API_ENDPOINTS.MESSAGES.STREAM_REPLY,
           { last_message: lastMessage, conversation_id: conversationId},
           (data: string) => {
+            // Check if stream was aborted
+            if (streamAbortControllerRef.current?.signal.aborted) {
+              return
+            }
+            
             // Update the thinking message with streaming content
             fullResponse += data
             setMessages(prev => 
@@ -262,6 +286,7 @@ export function useChat({ conversationId, initialLimit = 30 }: UseChatProps) {
                   : msg
               )
             )
+            setIsStreaming(false)
           },
           () => {
             // Stream completed - convert thinking message to regular message
@@ -276,6 +301,8 @@ export function useChat({ conversationId, initialLimit = 30 }: UseChatProps) {
                   : msg
               )
             )
+            setIsStreaming(false)
+            streamAbortControllerRef.current = null
           }
         )
       } catch (error) {
@@ -288,6 +315,8 @@ export function useChat({ conversationId, initialLimit = 30 }: UseChatProps) {
               : msg
           )
         )
+        setIsStreaming(false)
+        streamAbortControllerRef.current = null
       }
     },
     []
@@ -339,8 +368,12 @@ export function useChat({ conversationId, initialLimit = 30 }: UseChatProps) {
     if (abortControllerRef.current) {
       abortControllerRef.current.abort()
     }
+    if (streamAbortControllerRef.current) {
+      streamAbortControllerRef.current.abort()
+    }
     setMessages([])
     setIsLoading(false)
+    setIsStreaming(false)
     setIsInitialized(false)
     setPagination({
       hasNext: false,
@@ -418,6 +451,9 @@ export function useChat({ conversationId, initialLimit = 30 }: UseChatProps) {
       if (abortControllerRef.current) {
         abortControllerRef.current.abort()
       }
+      if (streamAbortControllerRef.current) {
+        streamAbortControllerRef.current.abort()
+      }
     }
   }, [])
 
@@ -430,7 +466,9 @@ export function useChat({ conversationId, initialLimit = 30 }: UseChatProps) {
       handleSubmit,
       sendMessage,
       streamAIReply,
+      stopStreaming,
       isLoading,
+      isStreaming,
       isLoadingOlder,
       clearMessages,
       addMessage,
@@ -449,7 +487,9 @@ export function useChat({ conversationId, initialLimit = 30 }: UseChatProps) {
       handleSubmit,
       sendMessage,
       streamAIReply,
+      stopStreaming,
       isLoading,
+      isStreaming,
       isLoadingOlder,
       clearMessages,
       addMessage,
