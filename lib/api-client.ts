@@ -7,17 +7,28 @@ const createApiClient = (): AxiosInstance => {
     baseURL: API_CONFIG.BASE_URL,
     timeout: API_CONFIG.TIMEOUT,
     headers: {
-      "Content-Type": "application/json",
+      // Remove default Content-Type - let it be set per request
+      "Accept": "application/json",
     },
   })
 
-  // Request interceptor to add auth token
+  // Request interceptor to add auth token and handle Content-Type
   client.interceptors.request.use(
     (config) => {
       const token = typeof window !== "undefined" ? localStorage.getItem("access_token") : null
       if (token) {
         config.headers.Authorization = `Bearer ${token}`
       }
+
+      // Handle Content-Type based on data type
+      if (config.data instanceof FormData) {
+        // For FormData, don't set Content-Type (browser will set it with boundary)
+        delete config.headers['Content-Type']
+      } else if (!config.headers['Content-Type']) {
+        // For other requests, default to JSON
+        config.headers['Content-Type'] = 'application/json'
+      }
+
       return config
     },
     (error) => {

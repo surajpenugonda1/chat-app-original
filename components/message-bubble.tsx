@@ -4,7 +4,6 @@
 import { useState, useEffect, memo } from "react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
 import { Copy, ThumbsUp, ThumbsDown, MoreHorizontal, Check } from "lucide-react"
 import { CodeRenderer } from "./features/code-renderer/code-renderer"
 import { cn } from "@/lib/utils"
@@ -48,10 +47,8 @@ export const MessageBubble = memo(({
       await navigator.clipboard.writeText(message.content)
       
       if (onCopy) {
-        // Use external handler if provided
         onCopy(message.id, message.content)
       } else {
-        // Use local state
         setLocalCopied(true)
         setTimeout(() => setLocalCopied(false), 2000)
       }
@@ -72,7 +69,6 @@ export const MessageBubble = memo(({
     let match
 
     while ((match = codeBlockRegex.exec(content)) !== null) {
-      // Add text before code block
       if (match.index > lastIndex) {
         const textContent = content.slice(lastIndex, match.index).trim()
         if (textContent) {
@@ -80,7 +76,6 @@ export const MessageBubble = memo(({
         }
       }
 
-      // Add code block
       const language = match[1] || "text"
       const codeContent = match[2].trim()
       if (codeContent) {
@@ -90,7 +85,6 @@ export const MessageBubble = memo(({
       lastIndex = match.index + match[0].length
     }
 
-    // Add remaining text
     if (lastIndex < content.length) {
       const textContent = content.slice(lastIndex).trim()
       if (textContent) {
@@ -98,7 +92,6 @@ export const MessageBubble = memo(({
       }
     }
 
-    // If no code blocks found, return the entire content as text
     if (parts.length === 0) {
       parts.push({ type: "text", content })
     }
@@ -107,138 +100,155 @@ export const MessageBubble = memo(({
   }
 
   const formatTextContent = (text: string) => {
-    // Handle inline code
-    const inlineCodeRegex = /`([^`]+)`/g
-    let formatted = text.replace(inlineCodeRegex, '<code class="bg-muted px-1 py-0.5 rounded text-sm font-mono">$1</code>')
-    
-    // Handle bold text
+    let formatted = text.replace(/`([^`]+)`/g, '<code class="bg-muted px-1.5 py-0.5 rounded text-sm font-mono">$1</code>')
     formatted = formatted.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-    
-    // Handle italic text
     formatted = formatted.replace(/\*(.*?)\*/g, '<em>$1</em>')
-    
-    // Handle line breaks
     formatted = formatted.replace(/\n/g, '<br />')
-    
     return formatted
   }
 
   const messageParts = parseMessageContent(message.content)
+  const formatTime = (timestamp: string) => {
+    return new Date(timestamp).toLocaleTimeString([], {
+      hour: "2-digit",
+      minute: "2-digit",
+    })
+  }
 
   return (
     <div className={cn(
-      "flex gap-3 group animate-in fade-in-0 duration-300",
+      "flex gap-3 sm:gap-4 group animate-in fade-in-0 duration-300 w-full",
       isUserMessage ? "flex-row-reverse" : "flex-row"
     )}>
-      <Avatar className="h-8 w-8 shrink-0">
+      {/* Avatar */}
+      <Avatar className="h-8 w-8 shrink-0 mt-1">
         <AvatarImage 
           src={avatarUrl || "/placeholder.svg"} 
           alt={userName || (isUserMessage ? "You" : "Assistant")} 
         />
-        <AvatarFallback>
+        <AvatarFallback className="text-xs">
           {userName?.charAt(0) || (isUserMessage ? "U" : "A")}
         </AvatarFallback>
       </Avatar>
 
+      {/* Message Content */}
       <div className={cn(
-        "flex-1 space-y-1 max-w-[85%]",
+        "flex flex-col min-w-0 flex-1",
         isUserMessage ? "items-end" : "items-start"
       )}>
-        <Card className={cn(
-          "transition-all duration-200",
+        {/* Message Bubble */}
+        <div className={cn(
+          "rounded-2xl px-4 py-3 shadow-sm transition-all duration-200 hover:shadow-md",
+          "max-w-[85%] sm:max-w-[75%] md:max-w-[65%] lg:max-w-[60%]",
+          "min-w-fit break-words",
           isUserMessage 
-            ? "ml-auto bg-primary text-primary-foreground" 
-            : "mr-auto hover:shadow-md"
+            ? "bg-primary text-primary-foreground rounded-br-md" 
+            : "bg-background border rounded-bl-md"
         )}>
-          <CardContent className="p-3">
-            <div className="space-y-3">
-              {messageParts.map((part, index) => (
-                <div key={index}>
-                  {part.type === "text" ? (
-                    <div
-                      className={cn(
-                        "prose prose-sm max-w-none",
-                        isUserMessage 
-                          ? "prose-invert" 
-                          : "dark:prose-invert"
-                      )}
-                      dangerouslySetInnerHTML={{
-                        __html: formatTextContent(part.content),
-                      }}
-                    />
-                  ) : (
+          <div className="space-y-3">
+            {messageParts.map((part, index) => (
+              <div key={index}>
+                {part.type === "text" ? (
+                  <div
+                    className={cn(
+                      "prose prose-sm max-w-none leading-relaxed",
+                      isUserMessage 
+                        ? "prose-invert" 
+                        : "prose-gray dark:prose-invert",
+                      "[&_code]:px-1.5 [&_code]:py-0.5 [&_code]:rounded [&_code]:text-sm [&_code]:font-mono",
+                      isUserMessage 
+                        ? "[&_code]:bg-primary-foreground/20" 
+                        : "[&_code]:bg-muted"
+                    )}
+                    dangerouslySetInnerHTML={{
+                      __html: formatTextContent(part.content),
+                    }}
+                  />
+                ) : (
+                  <div className="my-2 -mx-1">
                     <CodeRenderer 
                       code={part.content} 
                       language={part.language} 
-                      className="my-2" 
+                      className="text-sm" 
                     />
-                  )}
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Action buttons */}
-        <div className={cn(
-          "flex items-center gap-1 transition-all duration-200",
-          "opacity-0 group-hover:opacity-100"
-        )}>
-          <Button 
-            variant="ghost" 
-            size="sm" 
-            onClick={handleCopy}
-            className="h-7 text-xs"
-          >
-            {isCopied ? (
-              <Check className="h-3 w-3 text-green-600" />
-            ) : (
-              <Copy className="h-3 w-3" />
-            )}
-          </Button>
-
-          {!isUserMessage && (
-            <>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => handleReaction("like")}
-                className={cn(
-                  "h-7",
-                  reaction === "like" && "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300"
+                  </div>
                 )}
-              >
-                <ThumbsUp className="h-3 w-3" />
-              </Button>
-
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => handleReaction("dislike")}
-                className={cn(
-                  "h-7",
-                  reaction === "dislike" && "bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300"
-                )}
-              >
-                <ThumbsDown className="h-3 w-3" />
-              </Button>
-
-              <Button variant="ghost" size="sm" className="h-7">
-                <MoreHorizontal className="h-3 w-3" />
-              </Button>
-            </>
-          )}
+              </div>
+            ))}
+          </div>
         </div>
 
-        {/* Timestamp */}
+        {/* Footer with timestamp and actions */}
         <div className={cn(
-          "text-xs text-muted-foreground",
-          isUserMessage && "text-right"
+          "flex items-center gap-2 mt-1 px-1",
+          "transition-all duration-200",
+          isUserMessage ? "flex-row-reverse" : "flex-row"
         )}>
-          {new Date(message.timestamp).toLocaleTimeString([], {
-            hour: "2-digit",
-            minute: "2-digit",
-          })}
+          {/* Timestamp */}
+          <span className="text-xs text-muted-foreground select-none">
+            {formatTime(message.timestamp)}
+          </span>
+
+          {/* Action Buttons */}
+          <div className={cn(
+            "flex items-center gap-1",
+            "opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+          )}>
+            {/* Copy Button */}
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={handleCopy}
+              className="h-6 w-6 p-0 hover:bg-muted"
+              title="Copy message"
+            >
+              {isCopied ? (
+                <Check className="h-3 w-3 text-green-600" />
+              ) : (
+                <Copy className="h-3 w-3" />
+              )}
+            </Button>
+
+            {/* Assistant-only actions */}
+            {!isUserMessage && (
+              <>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => handleReaction("like")}
+                  className={cn(
+                    "h-6 w-6 p-0 hover:bg-muted",
+                    reaction === "like" && "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+                  )}
+                  title="Like message"
+                >
+                  <ThumbsUp className="h-3 w-3" />
+                </Button>
+
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => handleReaction("dislike")}
+                  className={cn(
+                    "h-6 w-6 p-0 hover:bg-muted",
+                    reaction === "dislike" && "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+                  )}
+                  title="Dislike message"
+                >
+                  <ThumbsDown className="h-3 w-3" />
+                </Button>
+
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  className="h-6 w-6 p-0 hover:bg-muted"
+                  title="More options"
+                >
+                  <MoreHorizontal className="h-3 w-3" />
+                </Button>
+              </>
+            )}
+          </div>
         </div>
       </div>
     </div>

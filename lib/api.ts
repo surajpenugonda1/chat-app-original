@@ -9,8 +9,9 @@ import {
   type MessagesListResponse,
   type MessageApiResponse,
   type CreateMessageRequest,
+  type ConversationApiResponse
 } from "./config"
-import type { Persona, Message } from "./types"
+import type { Persona, Message,Conversation } from "./types"
 
 // Transform API persona to our Persona type
 function transformPersona(apiPersona: PersonaApiResponse): Persona {
@@ -35,6 +36,20 @@ function transformMessage(apiMessage: MessageApiResponse): Message {
     content: apiMessage.content,
     timestamp: apiMessage.created_at,
     messageType: apiMessage.message_type,
+  }
+}
+
+
+function transformConversation(apiConversation: ConversationApiResponse): Conversation {
+  return {
+    id: apiConversation.id.toString(),
+    userId: apiConversation.user_id.toString(),
+    personaId: apiConversation.persona_id.toString(),
+    title: apiConversation.title ,
+    status: apiConversation.status,
+    metadata: apiConversation.meta_data || {},
+    createdAt: apiConversation.created_at,
+    updatedAt: apiConversation.updated_at,
   }
 }
 
@@ -88,6 +103,27 @@ export async function fetchPersonaById(id: string): Promise<Persona> {
         throw new Error("Persona not found")
       }
       return persona
+    }
+
+    throw new Error(error.message || "Failed to fetch persona")
+  }
+}
+
+export async function fetchConversationById(id: string): Promise<Conversation> {
+  try {
+    console.log("Fetching persona by ID:", id)
+
+    const response: ConversationApiResponse = await api.get(API_ENDPOINTS.CONVERSATIONS.BY_PERSONA(id))
+
+    console.log("Conversation fetched successfully:", response)
+
+    return transformConversation(response)
+  } catch (error: any) {
+    console.error("Fetch persona error:", error)
+
+    // Fallback to mock data if API is not available
+    if (error.status === 0 || error.status >= 500) {
+      console.warn("API unavailable, using mock persona")
     }
 
     throw new Error(error.message || "Failed to fetch persona")
@@ -195,7 +231,7 @@ export async function createMessage(messageData: CreateMessageRequest): Promise<
       requestData = formData
     }
 
-    const response: MessageApiResponse = await api.post(API_ENDPOINTS.MESSAGES.CREATE, requestData, {
+    const response: MessageApiResponse = await api.post(API_ENDPOINTS.MESSAGES.CREATE(messageData.conversation_id), requestData, {
       headers: messageData.files && messageData.files.length > 0 ? { "Content-Type": "multipart/form-data" } : {},
     })
 

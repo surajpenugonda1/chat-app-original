@@ -7,6 +7,8 @@ interface ChatContextType {
   personas: Persona[];
   setPersonas: (p: Persona[]) => void;
   currentPersonaId: string | null;
+  currentConversationId: string | null;
+  setCurrentConversationId: (id: string) => void;
   setCurrentPersonaId: (id: string) => void;
   isSidebarCollapsed: boolean;
   setIsSidebarCollapsed: (collapsed: boolean) => void;
@@ -24,12 +26,14 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
   const [personas, setPersonas] = useState<Persona[]>([]);
   const [currentPersonaId, setCurrentPersonaId] = useState<string | null>(null);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [currentConversationId, setCurrentConversationId] = useState<string | null>(null);
 
   return (
     <ChatContext.Provider value={{
       personas, setPersonas,
       currentPersonaId, setCurrentPersonaId,
-      isSidebarCollapsed, setIsSidebarCollapsed
+      isSidebarCollapsed, setIsSidebarCollapsed,
+      currentConversationId, setCurrentConversationId
     }}>
       {children}
     </ChatContext.Provider>

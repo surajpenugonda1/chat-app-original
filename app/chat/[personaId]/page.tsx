@@ -1,4 +1,3 @@
-// app/chat/[personaId]/page.tsx
 "use client"
 
 import { useState, useEffect, useCallback, useMemo, useRef, use } from "react"
@@ -6,8 +5,8 @@ import { useRouter } from "next/navigation"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import { useToast } from "@/components/ui/use-toast"
 import { useAuth } from "@/components/auth-provider"
-import { fetchPersonaById, fetchUserAssignedPersonas } from "@/lib/api"
-import type { Persona } from "@/lib/types"
+import { fetchPersonaById, fetchUserAssignedPersonas, fetchConversationById } from "@/lib/api"
+import type { Persona, Conversation } from "@/lib/types"
 import { cn } from "@/lib/utils"
 import { useChat } from "@/hooks/use-chat"
 import { useMobile } from "@/hooks/use-mobile"
@@ -17,14 +16,12 @@ import { TooltipProvider } from "@/components/ui/tooltip"
 import { ChatHeader, ChatHeaderSkeleton } from "@/components/features/chat/chat-header"
 import { ChatMessages, MessageSkeleton } from "@/components/features/chat/chat-messages"
 import { ChatInput } from "@/components/features/chat/chat-input"
-import type { Message } from "@/lib/types"
 import { useChatContext } from "@/components/features/chat/ChatContext"
 
 // Types
 interface AppState {
-  personas: Persona[]
   currentPersona: Persona | null
-  sidebarCollapsed: boolean
+  currentConversation: Conversation | null
   isRecording: boolean
   copiedMessageId: string | null
   isLoadingMessages: boolean
@@ -41,14 +38,13 @@ export default function ChatPage({ params }: { params: Promise<{ personaId: stri
   // Unwrap params using React.use()
   const resolvedParams = use(params)
   
-  // Memoize personaId
+  // Memoize personaId (keep routing based on persona)
   const personaId = useMemo(() => resolvedParams.personaId, [resolvedParams.personaId])
   
   // Unified state management
   const [state, setState] = useState<AppState>({
-    personas: [],
     currentPersona: null,
-    sidebarCollapsed: false,
+    currentConversation: null,
     isRecording: false,
     copiedMessageId: null,
     isLoadingMessages: false,
@@ -57,15 +53,42 @@ export default function ChatPage({ params }: { params: Promise<{ personaId: stri
   })
   
   // Refs for cleanup
-  const timeoutRef = useRef<NodeJS.Timeout>()
+  const timeoutRef = useRef<NodeJS.Timeout | undefined>(undefined)
   const currentPersonaRef = useRef<string | null>(null)
   
-  // Chat hook
-  const { messages, input, setInput, handleSubmit, isLoading, clearMessages, addMessage } = useChat({
-    personaId: personaId,
+  const { 
+    personas, 
+    setPersonas, 
+    currentPersonaId, 
+    setCurrentPersonaId, 
+    currentConversationId, 
+    setCurrentConversationId,
+    isSidebarCollapsed,
+    setIsSidebarCollapsed
+  } = useChatContext()
+  
+  // Chat hook - will be initialized once we have conversationId
+  const chat = useChat({
+    conversationId: currentConversationId ? parseInt(currentConversationId) : 0, // Use context conversationId
   })
   
-  const { personas, setPersonas, currentPersonaId, setCurrentPersonaId } = useChatContext();
+  const { 
+    messages, 
+    input, 
+    setInput, 
+    handleSubmit, 
+    sendMessage,
+    isLoading, 
+    isLoadingOlder,
+    clearMessages, 
+    addMessage,
+    deleteMessage,
+    loadOlderMessages,
+    searchMessages,
+    refreshMessages,
+    pagination,
+    isInitialized: chatInitialized
+  } = chat
   
   // Redirect if no user
   useEffect(() => {
@@ -74,7 +97,7 @@ export default function ChatPage({ params }: { params: Promise<{ personaId: stri
     }
   }, [user, router])
   
-  // Load initial data
+  // Load initial data and get/create conversation for persona
   useEffect(() => {
     if (!user || state.isInitialized) return
     
@@ -92,8 +115,8 @@ export default function ChatPage({ params }: { params: Promise<{ personaId: stri
         
         if (!isMounted) return
         
+        // Check if user has access to this persona
         const assignedPersonaIds = new Set(userAssignedPersonas.map((p: Persona) => p.id))
-        
         if (!assignedPersonaIds.has(personaId)) {
           if (userAssignedPersonas.length > 0) {
             router.push(`/chat/${userAssignedPersonas[0].id}`)
@@ -103,12 +126,43 @@ export default function ChatPage({ params }: { params: Promise<{ personaId: stri
           return
         }
         
+        if (!currentPersonaData) {
+          toast({
+            variant: "destructive",
+            title: "Error",
+            description: "Persona not found",
+          })
+          router.push("/personas")
+          return
+        }
+        
+        // Try to get existing conversation for this persona, or create new one
+        let conversationData: Conversation | null = null
+        try {
+          conversationData = await fetchConversationById(personaId)
+        } catch (error) {
+          console.log(error)
+        }
+        
+        if (!conversationData) {
+          toast({
+            variant: "destructive",
+            title: "Error",
+            description: "Failed to load or create conversation",
+          })
+          return
+        }
+        
+        // Set the conversation ID for the chat hook (convert to string for context)
+        setCurrentConversationId(conversationData.id.toString())
+        
         setPersonas(userAssignedPersonas)
         setCurrentPersonaId(personaId)
+        
         setState(prev => ({
           ...prev,
-          personas: userAssignedPersonas,
           currentPersona: currentPersonaData,
+          currentConversation: conversationData,
           isLoadingMessages: false,
           isInitialized: true,
         }))
@@ -130,13 +184,13 @@ export default function ChatPage({ params }: { params: Promise<{ personaId: stri
       isMounted = false
       controller.abort()
     }
-  }, [user, personaId, state.isInitialized, toast, router, setPersonas, setCurrentPersonaId])
+  }, [user, personaId, state.isInitialized, setPersonas, setCurrentPersonaId, setCurrentConversationId, router, toast])
   
-  // Handle persona switching
+  // Handle persona switching (keep existing logic)
   useEffect(() => {
-    if (!state.isInitialized || !state.personas.length) return
+    if (!state.isInitialized || !personas.length) return
     
-    const persona = state.personas.find(p => p.id === personaId)
+    const persona = personas.find(p => p.id === personaId)
     
     if (persona && currentPersonaRef.current !== persona.id) {
       currentPersonaRef.current = persona.id
@@ -159,12 +213,12 @@ export default function ChatPage({ params }: { params: Promise<{ personaId: stri
         clearTimeout(timeoutRef.current)
       }
     }
-  }, [personaId, state.personas, state.isInitialized, clearMessages])
+  }, [personaId, personas, state.isInitialized, clearMessages])
   
-  // Callbacks
+  // Callbacks - keep persona-based routing
   const handlePersonaSelect = useCallback((personaId: string) => {
     setState(prev => ({ ...prev, isMobileMenuOpen: false }))
-    router.push(`/chat/${personaId}`)
+    router.push(`/chat/${personaId}`) // Keep persona-based routing
   }, [router])
   
   const handleLogout = useCallback(() => {
@@ -180,7 +234,7 @@ export default function ChatPage({ params }: { params: Promise<{ personaId: stri
     clearMessages()
     toast({
       title: "Chat cleared",
-      description: "All messages have been cleared.",
+      description: "All messages have been cleared from view.",
     })
   }, [clearMessages, toast])
   
@@ -194,14 +248,14 @@ export default function ChatPage({ params }: { params: Promise<{ personaId: stri
   
   const handleRemovePersona = useCallback((personaIdToRemove: string) => {
     if (personaIdToRemove === personaId) {
-      const remainingPersonas = state.personas.filter(p => p.id !== personaIdToRemove)
+      const remainingPersonas = personas.filter(p => p.id !== personaIdToRemove)
       if (remainingPersonas.length > 0) {
         router.push(`/chat/${remainingPersonas[0].id}`)
       } else {
         router.push("/personas")
       }
     }
-  }, [router, personaId, state.personas])
+  }, [router, personaId, personas])
   
   const handleCopyMessage = useCallback(async (messageId: string, content: string) => {
     try {
@@ -225,7 +279,24 @@ export default function ChatPage({ params }: { params: Promise<{ personaId: stri
     }
   }, [toast])
   
+  const handleDeleteMessage = useCallback(async (messageId: string) => {
+    try {
+      await deleteMessage(messageId)
+      toast({
+        title: "Message deleted",
+        description: "Message has been deleted.",
+      })
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to delete message.",
+      })
+    }
+  }, [deleteMessage, toast])
+  
   const handleAudioMessage = useCallback((audioBlob: Blob) => {
+    // TODO: Implement actual audio transcription
     const mockTranscription = "This is a mock transcription of the audio message."
     setInput(mockTranscription)
     toast({
@@ -234,24 +305,29 @@ export default function ChatPage({ params }: { params: Promise<{ personaId: stri
     })
   }, [setInput, toast])
   
-  const handleFileUpload = useCallback((files: FileList) => {
-    const file = files[0]
-    if (file) {
-      const fileMessage = `[File uploaded: ${file.name} (${(file.size / 1024).toFixed(1)}KB)]`
-      addMessage({
-        role: "user",
-        content: fileMessage,
-      })
+  const handleFileUpload = useCallback(async (files: FileList) => {
+    const fileArray = Array.from(files)
+    
+    try {
+      // Send message with files using the updated sendMessage function
+      await sendMessage("", fileArray)
+      
       toast({
-        title: "File uploaded",
-        description: `${file.name} has been uploaded.`,
+        title: "Files uploaded",
+        description: `${fileArray.length} file(s) have been uploaded.`,
+      })
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Upload failed",
+        description: "Failed to upload files.",
       })
     }
-  }, [addMessage, toast])
+  }, [sendMessage, toast])
   
   const handleToggleSidebar = useCallback(() => {
-    setState(prev => ({ ...prev, sidebarCollapsed: !prev.sidebarCollapsed }))
-  }, [])
+    setIsSidebarCollapsed(!isSidebarCollapsed)
+  }, [isSidebarCollapsed, setIsSidebarCollapsed])
   
   const handleSetIsRecording = useCallback((recording: boolean) => {
     setState(prev => ({ ...prev, isRecording: recording }))
@@ -265,6 +341,31 @@ export default function ChatPage({ params }: { params: Promise<{ personaId: stri
     setState(prev => ({ ...prev, isMobileMenuOpen: true }))
   }, [])
   
+  const handleLoadOlderMessages = useCallback(async () => {
+    if (pagination.hasPrevious && !isLoadingOlder) {
+      await loadOlderMessages()
+    }
+  }, [pagination.hasPrevious, isLoadingOlder, loadOlderMessages])
+  
+  const handleSearchMessages = useCallback(async (query: string) => {
+    try {
+      const results = await searchMessages(query)
+      if (results) {
+        toast({
+          title: "Search completed",
+          description: `Found ${results.items?.length || 0} messages.`,
+        })
+        return results
+      }
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Search failed",
+        description: "Failed to search messages.",
+      })
+    }
+  }, [searchMessages, toast])
+  
   // Cleanup on unmount
   useEffect(() => {
     return () => {
@@ -274,8 +375,8 @@ export default function ChatPage({ params }: { params: Promise<{ personaId: stri
     }
   }, [])
   
-  // Early return if no user
-  if (!user) return null
+  // Early return if no user or no conversation ID yet
+  if (!user || !currentConversationId) return null
   
   return (
     <TooltipProvider>
@@ -308,17 +409,18 @@ export default function ChatPage({ params }: { params: Promise<{ personaId: stri
               )}
             >
               <ChatHeader
-                currentPersona={state.currentPersona}
                 isMobile={isMobile}
-                isCollapsed={state.sidebarCollapsed}
-                onToggleSidebar={!isMobile ? handleToggleSidebar : undefined}
+                currentConversation={state.currentConversation}
+                currentPersona={state.currentPersona}
                 onMobileMenuClick={isMobile ? handleMobileMenuClick : undefined}
                 onBackToPersonas={handleBackToPersonas}
                 onClearChat={handleClearChat}
+                onSearchMessages={handleSearchMessages}
                 onLogout={handleLogout}
               />
             </div>
           </div>
+          
           {/* Messages with fade */}
           <div className="relative flex-1 min-h-0">
             <div
@@ -342,20 +444,26 @@ export default function ChatPage({ params }: { params: Promise<{ personaId: stri
               <ChatMessages
                 messages={messages}
                 currentPersona={state.currentPersona}
+                currentConversation={state.currentConversation}
                 isLoading={state.isLoadingMessages}
+                isLoadingOlder={isLoadingOlder}
                 copiedMessageId={state.copiedMessageId}
+                canLoadOlder={pagination.hasPrevious}
                 onCopyMessage={handleCopyMessage}
+                onDeleteMessage={handleDeleteMessage}
+                onLoadOlderMessages={handleLoadOlderMessages}
                 onSampleQuestionClick={handleSampleQuestionClick}
               />
             </div>
           </div>
+          
           {/* Input */}
           <ChatInput
             input={input}
             isLoading={isLoading}
             isRecording={state.isRecording}
             onInputChange={setInput}
-            onSubmit={e => { handleSubmit(e as React.FormEvent<HTMLFormElement>); }}
+            onSubmit={handleSubmit}
             onFileUpload={handleFileUpload}
             onAudioMessage={handleAudioMessage}
             onSetIsRecording={handleSetIsRecording}

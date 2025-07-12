@@ -1,18 +1,14 @@
-// components/chat/chat-header.tsx
 "use client"
 
 import { memo } from "react"
 import { Button } from "@/components/ui/button"
+import { useChatContext } from "@/components/features/chat/ChatContext"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { ArrowLeft, MoreVertical, Trash2, LogOut, PanelLeft } from "lucide-react"
-import type { Persona } from "@/lib/types"
 
 interface ChatHeaderProps {
-  currentPersona: Persona | null
   isMobile: boolean
-  isCollapsed?: boolean
-  onToggleSidebar?: () => void
   onMobileMenuClick?: () => void
   onBackToPersonas: () => void
   onClearChat: () => void
@@ -20,27 +16,38 @@ interface ChatHeaderProps {
 }
 
 export const ChatHeader = memo(({
-  currentPersona,
   isMobile,
-  isCollapsed,
-  onToggleSidebar,
   onMobileMenuClick,
   onBackToPersonas,
   onClearChat,
   onLogout,
 }: ChatHeaderProps) => {
+  const { 
+    personas, 
+    currentPersonaId, 
+    isSidebarCollapsed, 
+    setIsSidebarCollapsed 
+  } = useChatContext()
+
+  // Find the current persona from the context
+  const currentPersona = personas.find(p => p.id === currentPersonaId) || null
+
+  const handleToggleSidebar = () => {
+    setIsSidebarCollapsed(!isSidebarCollapsed)
+  }
+
   return (
     <header className="sticky top-0 z-10 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="flex h-16 items-center px-4">
         {/* Desktop sidebar toggle */}
-        {!isMobile && onToggleSidebar && (
+        {!isMobile && (
           <Button 
             variant="ghost" 
             size="icon" 
-            onClick={onToggleSidebar} 
+            onClick={handleToggleSidebar} 
             className="mr-2 transition-transform duration-200 hover:scale-105"
           >
-            <PanelLeft className={`h-5 w-5 transition-transform duration-200 ${isCollapsed ? 'rotate-180' : ''}`} />
+            <PanelLeft className={`h-5 w-5 transition-transform duration-200 ${isSidebarCollapsed ? 'rotate-180' : ''}`} />
           </Button>
         )}
 
@@ -83,9 +90,6 @@ export const ChatHeader = memo(({
           </Avatar>
           <div className="flex flex-col min-w-0 animate-in fade-in-0 duration-200">
             <div className="font-semibold truncate">{currentPersona?.name || "Select a persona"}</div>
-            <div className="text-xs text-muted-foreground truncate">
-              {currentPersona?.description || "Start a conversation"}
-            </div>
           </div>
         </div>
 

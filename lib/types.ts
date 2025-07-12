@@ -73,12 +73,14 @@ export interface PaginatedResponse<T> {
   hasPrev: boolean
 }
 
-// Conversation Types
+
 export interface Conversation {
   id: string
+  userId: string
   personaId: string
-  title: string
+  title: string | null
+  status: string
+  metadata?: Record<string, any> | null
   createdAt: string
-  updatedAt: string
-  messageCount: number
+  updatedAt: string | null
 }

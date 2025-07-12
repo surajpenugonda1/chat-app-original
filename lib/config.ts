@@ -6,7 +6,6 @@ export const API_CONFIG = {
   RETRY_DELAY: 1000, // 1 second
 } as const
 
-// API Endpoints
 export const API_ENDPOINTS = {
   AUTH: {
     REGISTER: "/auth/register",
@@ -28,12 +27,28 @@ export const API_ENDPOINTS = {
     CREATE: "/conversations",
     DETAIL: (id: string) => `/conversations/${id}`,
     MESSAGES: (id: string) => `/conversations/${id}/messages`,
+    BY_PERSONA: (id: string) => `/conversations/by_persona/${id}`,
   },
   MESSAGES: {
-    CREATE: "/messages",
-    DETAIL: (id: string) => `/messages/${id}`,
-    UPDATE: (id: string) => `/messages/${id}`,
-    DELETE: (id: string) => `/messages/${id}`,
+    // Optimized message loading endpoints
+    RECENT: (conversationId: number) => `/messages/${conversationId}/recent`,
+    OLDER: (conversationId: number) => `/messages/${conversationId}/older`,
+    NEWER: (conversationId: number) => `/messages/${conversationId}/newer`,
+    
+    // Message CRUD operations
+    CREATE: (conversationId: number) => `/messages/${conversationId}`,
+    DETAIL: (conversationId: number, messageId: string) => `/messages/${conversationId}/${messageId}`,
+    DELETE: (conversationId: number, messageId: string) => `/messages/${conversationId}/${messageId}`,
+    
+    // Utility endpoints
+    COUNT: (conversationId: number) => `/messages/${conversationId}/count`,
+    SEARCH: (conversationId: number) => `/messages/${conversationId}/search`,
+    
+    // Message attachments
+    ATTACHMENTS: (conversationId: number, messageId: string) => `/messages/${conversationId}/${messageId}/attachments`,
+    
+    // Legacy endpoint
+    LEGACY: (conversationId: number) => `/messages/${conversationId}/legacy`,
   },
   CHAT: {
     STREAM: (personaId: string) => `/chat/${personaId}/stream`,
@@ -72,6 +87,43 @@ export interface PersonasListResponse {
 export interface Tag {
   id: number
   name: string
+}
+
+// Enum to match the backend ConversationStatus
+export enum ConversationStatus {
+  ACTIVE = "ACTIVE",
+  ARCHIVED = "ARCHIVED",
+  DELETED = "DELETED"
+}
+
+export interface ConversationApiResponse {
+  id: number
+  user_id: number
+  persona_id: number
+  title: string | null
+  status: ConversationStatus
+  meta_data?: Record<string, any> | null
+  created_at: string
+  updated_at: string | null
+  
+  user?: UserApiResponse
+  persona?: PersonaApiResponse
+  messages?: MessageApiResponse[]
+}
+
+export interface UserApiResponse {
+  id: number
+  username: string
+  email: string
+}
+
+export interface MessageApiResponse {
+  id: number
+  conversation_id: number
+  content: string
+  role: 'user' | 'assistant' | 'system'
+  created_at: string
+  updated_at: string | null
 }
 
 export interface PersonaApiResponse {

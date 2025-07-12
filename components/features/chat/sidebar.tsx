@@ -2,16 +2,15 @@
 "use client"
 
 import { memo, useState, useMemo } from "react"
-import { useChatContext } from "./ChatContext"
+import { useChatContext } from "@/components/features/chat/ChatContext"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip"
-import { Search, Plus, X, PanelLeft } from "lucide-react"
+import { Search, Plus, X } from "lucide-react"
 import { cn } from "@/lib/utils"
-import type { Persona } from "@/lib/types"
 
 const Sidebar = () => {
   const {
@@ -48,7 +47,7 @@ const Sidebar = () => {
       className={cn(
         "flex h-full flex-col bg-background border-r transition-all duration-300 ease-in-out overflow-hidden",
         "transition-[width]",
-        isSidebarCollapsed ? "w-16" : "w-60" // 240px for desktop
+        isSidebarCollapsed ? "w-16" : "w-64" // 240px for desktop
       )}
     >
       {/* Header */}
@@ -68,18 +67,6 @@ const Sidebar = () => {
               className={cn(isSidebarCollapsed && "mx-auto")}
             >
               <Plus className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              aria-label={isSidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-              onClick={handleToggleCollapse}
-              className="hidden md:flex"
-            >
-              <PanelLeft className={cn(
-                "h-4 w-4 transition-transform duration-200",
-                isSidebarCollapsed && "rotate-180"
-              )} />
             </Button>
           </div>
         </div>
@@ -130,7 +117,7 @@ const Sidebar = () => {
                         {!isSidebarCollapsed && (
                           <div className="flex-1 text-left min-w-0 animate-in fade-in-0 slide-in-from-left-2 duration-200">
                             <div className="font-medium text-sm truncate">{persona.name}</div>
-                            <div className="text-xs text-muted-foreground truncate">{persona.description}</div>
+                            
                           </div>
                         )}
                       </div>
