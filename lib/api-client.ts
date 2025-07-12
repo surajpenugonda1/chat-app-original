@@ -66,11 +66,13 @@ const createApiClient = (): AxiosInstance => {
             return client(originalRequest)
           }
         } catch (refreshError) {
-          // Refresh failed, redirect to login
-          localStorage.removeItem("access_token")
-          localStorage.removeItem("refresh_token")
-          if (typeof window !== "undefined") {
-            window.location.href = "/login"
+          // Refresh failed, but only redirect if it's an auth error, not a network error
+          if (refreshError.response?.status === 401) {
+            localStorage.removeItem("access_token")
+            localStorage.removeItem("refresh_token")
+            if (typeof window !== "undefined") {
+              window.location.href = "/login"
+            }
           }
           return Promise.reject(refreshError)
         }

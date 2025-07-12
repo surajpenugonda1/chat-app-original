@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { z } from "zod"
@@ -11,7 +11,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { useToast } from "@/components/ui/use-toast"
-import { registerUser } from "@/lib/auth"
+
 import { useAuth } from "@/components/auth-provider"
 import { Loader2, ArrowLeft } from "lucide-react"
 
@@ -36,8 +36,15 @@ const signupSchema = z
 export default function SignupPage() {
   const router = useRouter()
   const { toast } = useToast()
-  const { login } = useAuth()
+  const { register, user, isLoading: authLoading } = useAuth()
   const [isLoading, setIsLoading] = useState(false)
+
+  // Redirect if user is already authenticated
+  useEffect(() => {
+    if (!authLoading && user) {
+      router.push("/personas")
+    }
+  }, [user, authLoading, router])
 
   const form = useForm<z.infer<typeof signupSchema>>({
     resolver: zodResolver(signupSchema),
@@ -52,8 +59,11 @@ export default function SignupPage() {
   async function onSubmit(values: z.infer<typeof signupSchema>) {
     setIsLoading(true)
     try {
-      const token = await registerUser(values)
-      await login(token)
+      await register({
+        name: values.name,
+        email: values.email,
+        password: values.password,
+      })
       toast({
         title: "Account created!",
         description: "Welcome to NextChat! You are now logged in.",
@@ -72,6 +82,18 @@ export default function SignupPage() {
 
   const handleBack = () => {
     router.push("/")
+  }
+
+  // Show loading state while auth is initializing
+  if (authLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-muted/40">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    )
   }
 
   return (

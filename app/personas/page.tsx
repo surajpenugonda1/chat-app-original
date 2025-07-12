@@ -26,7 +26,7 @@ const ITEMS_PER_PAGE = 8
 export default function PersonasPage() {
   const router = useRouter()
   const { toast } = useToast()
-  const { user, logout } = useAuth()
+  const { user, logout, isLoading: authLoading } = useAuth()
   
   // State management
   const [personas, setPersonas] = useState<Persona[]>([])
@@ -113,7 +113,7 @@ export default function PersonasPage() {
   // Load personas on mount
   useEffect(() => {
     console.log('rendering two times ')
-    if (!user) {
+    if (!authLoading && !user) {
       router.push("/login")
       return
     }
@@ -141,7 +141,9 @@ export default function PersonasPage() {
       }
     }
 
-    loadPersonas()
+    if (user && !authLoading) {
+      loadPersonas()
+    }
 
     return () => {
       isMounted = false
@@ -152,6 +154,18 @@ export default function PersonasPage() {
   useEffect(() => {
     setCurrentPage(1)
   }, [searchQuery])
+
+  // Show loading state while auth is initializing
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    )
+  }
 
   // Render loading skeletons
   const renderSkeletons = () => (

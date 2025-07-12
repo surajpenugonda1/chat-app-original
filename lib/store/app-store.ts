@@ -172,6 +172,9 @@ export const useAppStore = create<AppState>()(
         features: state.features,
         selectedPersonas: Array.from(state.selectedPersonas),
         recentPersonas: state.recentPersonas,
+        // Don't persist auth state - it should be managed by AuthProvider
+        // user: state.user,
+        // isAuthenticated: state.isAuthenticated,
       }),
       onRehydrateStorage: () => (state) => {
         if (state && Array.isArray(state.selectedPersonas)) {

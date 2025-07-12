@@ -32,7 +32,7 @@ interface AppState {
 export default function ChatPage({ params }: { params: Promise<{ personaId: string }> }) {
   const router = useRouter()
   const { toast } = useToast()
-  const { user, logout } = useAuth()
+  const { user, logout, isLoading: authLoading } = useAuth()
   const isMobile = useMobile()
   
   // Unwrap params using React.use()
@@ -90,17 +90,29 @@ export default function ChatPage({ params }: { params: Promise<{ personaId: stri
     pagination,
     isInitialized: chatInitialized
   } = chat
+
+  // Show loading state while auth is initializing
+  if (authLoading) {
+    return (
+      <div className="flex-1 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    )
+  }
   
-  // Redirect if no user
+  // Redirect if no user (but wait for auth to load)
   useEffect(() => {
-    if (!user) {
+    if (!authLoading && !user) {
       router.push("/login")
     }
-  }, [user, router])
+  }, [user, authLoading, router])
   
   // Load initial data and get/create conversation for persona
   useEffect(() => {
-    if (!user || state.isInitialized) return
+    if (!user || authLoading || state.isInitialized) return
     
     let isMounted = true
     const controller = new AbortController()

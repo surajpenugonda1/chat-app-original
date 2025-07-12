@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { z } from "zod"
@@ -27,8 +27,15 @@ const loginSchema = z.object({
 export default function LoginPage() {
   const router = useRouter()
   const { toast } = useToast()
-  const { login } = useAuth()
+  const { login, user, isLoading: authLoading } = useAuth()
   const [isLoading, setIsLoading] = useState(false)
+
+  // Redirect if user is already authenticated
+  useEffect(() => {
+    if (!authLoading && user) {
+      router.push("/personas")
+    }
+  }, [user, authLoading])
 
   const form = useForm<z.infer<typeof loginSchema>>({
     resolver: zodResolver(loginSchema),
@@ -92,6 +99,18 @@ export default function LoginPage() {
 
   const handleBack = () => {
     router.push("/")
+  }
+
+  // Show loading state while auth is initializing
+  if (authLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-muted/40">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    )
   }
 
   return (
