@@ -27,12 +27,14 @@ interface AppState {
   isLoadingMessages: boolean
   isInitialized: boolean
   isMobileMenuOpen: boolean
+  error: string | null
 }
 
-export default function ChatPage({ params }: { params: Promise<{ personaId: string }> }) {
+export default function ChatPage({ params }: { params: Promise<{ personaId: string }> })
+{
   const router = useRouter()
   const { toast } = useToast()
-  const { user, logout, isLoading: authLoading } = useAuth()
+  const { user, logout, isLoading: authLoading, error: authError } = useAuth()
   const isMobile = useMobile()
   
   // Unwrap params using React.use()
@@ -50,11 +52,13 @@ export default function ChatPage({ params }: { params: Promise<{ personaId: stri
     isLoadingMessages: false,
     isInitialized: false,
     isMobileMenuOpen: false,
+    error: null,
   })
   
   // Refs for cleanup
   const timeoutRef = useRef<NodeJS.Timeout | undefined>(undefined)
   const currentPersonaRef = useRef<string | null>(null)
+  const initializationRef = useRef(false)
   
   const { 
     personas, 
@@ -69,7 +73,7 @@ export default function ChatPage({ params }: { params: Promise<{ personaId: stri
   
   // Chat hook - will be initialized once we have conversationId
   const chat = useChat({
-    conversationId: currentConversationId ? parseInt(currentConversationId) : 0, // Use context conversationId
+    conversationId: currentConversationId ? parseInt(currentConversationId) : 0,
   })
   
   const { 
@@ -91,17 +95,15 @@ export default function ChatPage({ params }: { params: Promise<{ personaId: stri
     isInitialized: chatInitialized
   } = chat
 
-  // Show loading state while auth is initializing
-  if (authLoading) {
-    return (
-      <div className="flex-1 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Loading...</p>
-        </div>
-      </div>
-    )
-  }
+  // Handle auth errors
+  useEffect(() => {
+    if (authError) {
+      setState(prev => ({ ...prev, error: authError }))
+    } else {
+      // Clear local error when auth error is cleared
+      setState(prev => ({ ...prev, error: null }))
+    }
+  }, [authError])
   
   // Redirect if no user (but wait for auth to load)
   useEffect(() => {
@@ -112,25 +114,41 @@ export default function ChatPage({ params }: { params: Promise<{ personaId: stri
   
   // Load initial data and get/create conversation for persona
   useEffect(() => {
-    if (!user || authLoading || state.isInitialized) return
+    if (!user || authLoading) return
     
+    // Reset initialization flag if user or personaId changes
+    if (initializationRef.current) {
+      initializationRef.current = false
+    }
+    
+    initializationRef.current = true
     let isMounted = true
     const controller = new AbortController()
     
     const loadData = async () => {
       try {
-        setState(prev => ({ ...prev, isLoadingMessages: true }))
+        setState(prev => ({ ...prev, isLoadingMessages: true, error: null }))
+        
+        console.log('Loading data for persona:', personaId)
         
         const [userAssignedPersonas, currentPersonaData] = await Promise.all([
           fetchUserAssignedPersonas(),
-          fetchPersonaById(personaId).catch(() => null),
+          fetchPersonaById(personaId).catch((error) => {
+            console.error('Failed to fetch persona:', error)
+            return null
+          }),
         ])
         
-        if (!isMounted) return
+        if (!isMounted || controller.signal.aborted) return
+        
+        console.log('User assigned personas:', userAssignedPersonas)
+        console.log('Current persona data:', currentPersonaData)
         
         // Check if user has access to this persona
         const assignedPersonaIds = new Set(userAssignedPersonas.map((p: Persona) => p.id))
         if (!assignedPersonaIds.has(personaId)) {
+          console.log('User does not have access to persona:', personaId)
+          setState(prev => ({ ...prev, isLoadingMessages: false }))
           if (userAssignedPersonas.length > 0) {
             router.push(`/chat/${userAssignedPersonas[0].id}`)
           } else {
@@ -140,6 +158,7 @@ export default function ChatPage({ params }: { params: Promise<{ personaId: stri
         }
         
         if (!currentPersonaData) {
+          setState(prev => ({ ...prev, isLoadingMessages: false }))
           toast({
             variant: "destructive",
             title: "Error",
@@ -153,8 +172,11 @@ export default function ChatPage({ params }: { params: Promise<{ personaId: stri
         let conversationData: Conversation | null = null
         try {
           conversationData = await fetchConversationById(personaId)
+          console.log('Conversation data:', conversationData)
         } catch (error) {
-          console.log(error)
+          console.error('Failed to fetch conversation:', error)
+          setState(prev => ({ ...prev, error: 'Failed to load conversation' }))
+          return
         }
         
         if (!conversationData) {
@@ -163,8 +185,11 @@ export default function ChatPage({ params }: { params: Promise<{ personaId: stri
             title: "Error",
             description: "Failed to load or create conversation",
           })
+          setState(prev => ({ ...prev, error: 'Failed to load conversation' }))
           return
         }
+        
+        if (!isMounted || controller.signal.aborted) return
         
         // Set the conversation ID for the chat hook (convert to string for context)
         setCurrentConversationId(conversationData.id.toString())
@@ -178,15 +203,32 @@ export default function ChatPage({ params }: { params: Promise<{ personaId: stri
           currentConversation: conversationData,
           isLoadingMessages: false,
           isInitialized: true,
+          error: null,
         }))
-      } catch (error) {
+        
+        console.log('Data loading completed successfully')
+      } catch (error: any) {
+        console.error('Error loading data:', error)
         if (isMounted && !controller.signal.aborted) {
-          setState(prev => ({ ...prev, isLoadingMessages: false }))
-          toast({
-            variant: "destructive",
-            title: "Error",
-            description: "Failed to load data",
-          })
+          setState(prev => ({ 
+            ...prev, 
+            isLoadingMessages: false,
+            error: error.message || 'Failed to load data'
+          }))
+          
+          if (error.message?.includes('Backend service unavailable')) {
+            toast({
+              variant: "destructive",
+              title: "Service Unavailable",
+              description: "The chat service is temporarily unavailable. Please try again later.",
+            })
+          } else {
+            toast({
+              variant: "destructive",
+              title: "Error",
+              description: "Failed to load data",
+            })
+          }
         }
       }
     }
@@ -197,11 +239,11 @@ export default function ChatPage({ params }: { params: Promise<{ personaId: stri
       isMounted = false
       controller.abort()
     }
-  }, [user, personaId, state.isInitialized, setPersonas, setCurrentPersonaId, setCurrentConversationId])
+  }, [user, personaId, authLoading, router, toast, setPersonas, setCurrentPersonaId, setCurrentConversationId])
   
   // Handle persona switching (keep existing logic)
   useEffect(() => {
-    if (!state.isInitialized || !personas.length) return
+    if (!state.isInitialized || !personas.length || !personaId) return
     
     const persona = personas.find(p => p.id === personaId)
     
@@ -231,16 +273,22 @@ export default function ChatPage({ params }: { params: Promise<{ personaId: stri
   // Callbacks - keep persona-based routing
   const handlePersonaSelect = useCallback((personaId: string) => {
     setState(prev => ({ ...prev, isMobileMenuOpen: false }))
-    router.push(`/chat/${personaId}`) // Keep persona-based routing
+    router.push(`/chat/${personaId}`)
   }, [router])
   
-  const handleLogout = useCallback(() => {
-    logout()
-    router.push("/")
-    toast({
-      title: "Logged out",
-      description: "You have been successfully logged out.",
-    })
+  const handleLogout = useCallback(async () => {
+    try {
+      await logout()
+      router.push("/")
+      toast({
+        title: "Logged out",
+        description: "You have been successfully logged out.",
+      })
+    } catch (error) {
+      console.error('Logout error:', error)
+      // Still redirect even if logout API fails
+      router.push("/")
+    }
   }, [logout, router, toast])
   
   const handleClearChat = useCallback(() => {
@@ -329,11 +377,11 @@ export default function ChatPage({ params }: { params: Promise<{ personaId: stri
         title: "Files uploaded",
         description: `${fileArray.length} file(s) have been uploaded.`,
       })
-    } catch (error) {
+    } catch (error: any) {
       toast({
         variant: "destructive",
         title: "Upload failed",
-        description: "Failed to upload files.",
+        description: error.message || "Failed to upload files.",
       })
     }
   }, [sendMessage, toast])
@@ -356,9 +404,17 @@ export default function ChatPage({ params }: { params: Promise<{ personaId: stri
   
   const handleLoadOlderMessages = useCallback(async () => {
     if (pagination.hasPrevious && !isLoadingOlder) {
-      await loadOlderMessages()
+      try {
+        await loadOlderMessages()
+      } catch (error: any) {
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: error.message || "Failed to load older messages.",
+        })
+      }
     }
-  }, [pagination.hasPrevious, isLoadingOlder, loadOlderMessages])
+  }, [pagination.hasPrevious, isLoadingOlder, loadOlderMessages, toast])
   
   const handleSearchMessages = useCallback(async (query: string) => {
     try {
@@ -370,15 +426,26 @@ export default function ChatPage({ params }: { params: Promise<{ personaId: stri
         })
         return results
       }
-    } catch (error) {
+    } catch (error: any) {
       toast({
         variant: "destructive",
         title: "Search failed",
-        description: "Failed to search messages.",
+        description: error.message || "Failed to search messages.",
       })
     }
   }, [searchMessages, toast])
-  
+
+  const handleRetry = useCallback(() => {
+    setState(prev => ({ 
+      ...prev, 
+      error: null, 
+      isInitialized: false,
+      isLoadingMessages: false 
+    }))
+    initializationRef.current = false
+    // This will trigger the useEffect to reload data
+  }, [])
+
   // Cleanup on unmount
   useEffect(() => {
     return () => {
@@ -387,9 +454,46 @@ export default function ChatPage({ params }: { params: Promise<{ personaId: stri
       }
     }
   }, [])
+
+  // Show loading state while auth is initializing or data is loading
+  if (authLoading || (!state.isInitialized && !state.error)) {
+    return (
+      <div className="flex-1 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // Show error state if there's an error and we're not loading
+  if (state.error && !authLoading && !state.isLoadingMessages) {
+    return (
+      <div className="flex-1 flex items-center justify-center">
+        <div className="text-center max-w-md">
+          <div className="text-red-500 mb-4">
+            <svg className="w-12 h-12 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 18.5c-.77.833.192 2.5 1.732 2.5z" />
+            </svg>
+          </div>
+          <h2 className="text-xl font-semibold mb-2">Connection Error</h2>
+          <p className="text-muted-foreground mb-4">{state.error}</p>
+          <button 
+            onClick={handleRetry} 
+            className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90"
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+    )
+  }
   
-  // Early return if no user or no conversation ID yet
-  if (!user || !currentConversationId) return null
+  // Early return if no user (but auth is loaded)
+  if (!user) {
+    return null
+  }
   
   return (
     <TooltipProvider>

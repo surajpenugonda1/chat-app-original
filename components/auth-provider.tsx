@@ -66,6 +66,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         console.log("✅ User data fetched successfully:", currentUser)
         setUser(currentUser)
         setAuthenticated(true)
+        setError(null) // Clear any previous errors on successful auth
       } else {
         // Token exists but couldn't get user - clear invalid tokens
         console.log("❌ Token invalid, clearing auth data")
@@ -86,6 +87,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
           console.log("✅ Using cached user data:", cachedUser)
           setUser(cachedUser)
           setAuthenticated(true)
+          setError(null) // Clear error when using cached data successfully
         } else {
           console.log("❌ No cached user data available")
           setUser(null)
