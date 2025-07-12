@@ -19,6 +19,7 @@ const Sidebar = () => {
     setCurrentPersonaId,
     isSidebarCollapsed,
     setIsSidebarCollapsed,
+    setCurrentConversationId
   } = useChatContext();
   const [searchQuery, setSearchQuery] = useState("");
   const router = useRouter();
@@ -34,12 +35,11 @@ const Sidebar = () => {
 
   const handlePersonaSelect = (id: string) => {
     setCurrentPersonaId(id);
+    setCurrentConversationId("")
     router.push(`/chat/${id}`);
-    // Do NOT collapse sidebar here!
   };
   const handleAddPersona = () => router.push("/personas");
   const handleRemovePersona = (id: string) => {/* Implement as needed */};
-  const handleToggleCollapse = () => setIsSidebarCollapsed(!isSidebarCollapsed);
 
   return (
     <nav

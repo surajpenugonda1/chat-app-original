@@ -170,8 +170,8 @@ export function useChat({ conversationId, initialLimit = 30 }: UseChatProps) {
           }
         )
   
-        console.log("Message sent successfully:", response.data)
-        const newMessage = transformMessage(response.data)
+        console.log("Message sent successfully:", response)
+        const newMessage = transformMessage(response)
         setMessages(prev => [...prev, newMessage])
         setInput("")
         
@@ -215,7 +215,7 @@ export function useChat({ conversationId, initialLimit = 30 }: UseChatProps) {
         abortControllerRef.current = null
       }
     },
-    [conversationId, isLoading, toast, setInput, setMessages]
+    [conversationId, isLoading, setInput, setMessages]
   )
 
   const handleSubmit = useCallback(

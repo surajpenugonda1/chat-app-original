@@ -184,7 +184,7 @@ export default function ChatPage({ params }: { params: Promise<{ personaId: stri
       isMounted = false
       controller.abort()
     }
-  }, [user, personaId, state.isInitialized, setPersonas, setCurrentPersonaId, setCurrentConversationId, router, toast])
+  }, [user, personaId, state.isInitialized, setPersonas, setCurrentPersonaId, setCurrentConversationId])
   
   // Handle persona switching (keep existing logic)
   useEffect(() => {
