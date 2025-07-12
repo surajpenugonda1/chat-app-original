@@ -78,6 +78,7 @@ export default function ChatPage({ params }: { params: Promise<{ personaId: stri
     setInput, 
     handleSubmit, 
     sendMessage,
+    streamAIReply,
     isLoading, 
     isLoadingOlder,
     clearMessages, 
@@ -410,12 +411,9 @@ export default function ChatPage({ params }: { params: Promise<{ personaId: stri
             >
               <ChatHeader
                 isMobile={isMobile}
-                currentConversation={state.currentConversation}
-                currentPersona={state.currentPersona}
                 onMobileMenuClick={isMobile ? handleMobileMenuClick : undefined}
                 onBackToPersonas={handleBackToPersonas}
                 onClearChat={handleClearChat}
-                onSearchMessages={handleSearchMessages}
                 onLogout={handleLogout}
               />
             </div>
@@ -463,7 +461,7 @@ export default function ChatPage({ params }: { params: Promise<{ personaId: stri
             isLoading={isLoading}
             isRecording={state.isRecording}
             onInputChange={setInput}
-            onSubmit={handleSubmit}
+            onSubmit={(e) => handleSubmit(e as React.FormEvent<HTMLFormElement>)}
             onFileUpload={handleFileUpload}
             onAudioMessage={handleAudioMessage}
             onSetIsRecording={handleSetIsRecording}

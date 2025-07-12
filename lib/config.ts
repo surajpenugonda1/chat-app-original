@@ -43,7 +43,8 @@ export const API_ENDPOINTS = {
     // Utility endpoints
     COUNT: (conversationId: number) => `/messages/${conversationId}/count`,
     SEARCH: (conversationId: number) => `/messages/${conversationId}/search`,
-    
+    STREAM_REPLY: "/messages/ai/stream-reply",
+
     // Message attachments
     ATTACHMENTS: (conversationId: number, messageId: string) => `/messages/${conversationId}/${messageId}/attachments`,
     
@@ -52,6 +53,9 @@ export const API_ENDPOINTS = {
   },
   CHAT: {
     STREAM: (personaId: string) => `/chat/${personaId}/stream`,
+  },
+  AI: {
+    STREAM_REPLY: "/ai/stream-reply",
   },
 } as const
 

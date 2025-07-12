@@ -91,7 +91,7 @@ export async function apiRequest<T = any>(
   config: AxiosRequestConfig,
   retryAttempts: number = API_CONFIG.RETRY_ATTEMPTS,
 ): Promise<T> {
-  let lastError: AxiosError
+  let lastError: AxiosError | null = null
 
   for (let attempt = 1; attempt <= retryAttempts; attempt++) {
     try {
@@ -117,6 +117,10 @@ export async function apiRequest<T = any>(
   }
 
   // Transform error for consistent handling
+  if (!lastError) {
+    throw new Error("An unknown error occurred")
+  }
+  
   const errorData = lastError.response?.data as any
   const apiError = {
     message: errorData?.message || errorData?.detail || lastError.message || "An error occurred",
@@ -127,6 +131,71 @@ export async function apiRequest<T = any>(
   }
 
   throw apiError
+}
+
+// Streaming function for Server-Sent Events
+export async function streamRequest(
+  url: string,
+  params?: Record<string, string>,
+  onMessage?: (data: string) => void,
+  onError?: (error: any) => void,
+  onComplete?: () => void
+): Promise<void> {
+  try {
+    const token = typeof window !== "undefined" ? localStorage.getItem("access_token") : null
+    const headers: Record<string, string> = {
+      "Accept": "text/event-stream",
+      "Cache-Control": "no-cache",
+    }
+    
+    if (token) {
+      headers.Authorization = `Bearer ${token}`
+    }
+
+    const queryParams = params ? new URLSearchParams(params).toString() : ""
+    const fullUrl = `${API_CONFIG.BASE_URL}${url}${queryParams ? `?${queryParams}` : ""}`
+
+    const response = await fetch(fullUrl, {
+      method: "GET",
+      headers,
+    })
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`)
+    }
+
+    const reader = response.body?.getReader()
+    if (!reader) {
+      throw new Error("No response body")
+    }
+
+    const decoder = new TextDecoder()
+    let buffer = ""
+
+    while (true) {
+      const { done, value } = await reader.read()
+      
+      if (done) {
+        onComplete?.()
+        break
+      }
+
+      buffer += decoder.decode(value, { stream: true })
+      const lines = buffer.split("\n")
+      buffer = lines.pop() || ""
+
+      for (const line of lines) {
+        if (line.startsWith("data: ")) {
+          const data = line.slice(6)
+          if (data.trim() && data !== "[DONE]") {
+            onMessage?.(data)
+          }
+        }
+      }
+    }
+  } catch (error) {
+    onError?.(error)
+  }
 }
 
 // Convenience methods
@@ -143,4 +212,6 @@ export const api = {
     apiRequest<T>({ ...config, method: "PATCH", url, data }),
 
   delete: <T = any>(url: string, config?: AxiosRequestConfig) => apiRequest<T>({ ...config, method: "DELETE", url }),
+
+  stream: streamRequest,
 }

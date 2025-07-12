@@ -175,6 +175,9 @@ export function useChat({ conversationId, initialLimit = 30 }: UseChatProps) {
         setMessages(prev => [...prev, newMessage])
         setInput("")
         
+        // Start streaming AI reply
+        await streamAIReply(content.trim(), conversationId)
+        
       } catch (error: any) {
         if (error.name === 'AbortError') {
           console.log('Request was aborted')
@@ -216,6 +219,78 @@ export function useChat({ conversationId, initialLimit = 30 }: UseChatProps) {
       }
     },
     [conversationId, isLoading, setInput, setMessages]
+  )
+
+  const streamAIReply = useCallback(
+    async (lastMessage: string, conversationId: string) => {
+      // Add a "thinking" message first
+      const thinkingMessageId = `thinking-${Date.now()}`
+      const thinkingMessage: Message = {
+        id: thinkingMessageId,
+        role: "assistant",
+        content: "Thinking...",
+        timestamp: new Date().toISOString(),
+        messageType: "text",
+      }
+      
+      setMessages(prev => [...prev, thinkingMessage])
+      
+      try {
+        let fullResponse = ""
+        
+        await api.stream(
+          API_ENDPOINTS.MESSAGES.STREAM_REPLY,
+          { last_message: lastMessage, conversation_id: conversationId},
+          (data: string) => {
+            // Update the thinking message with streaming content
+            fullResponse += data
+            setMessages(prev => 
+              prev.map(msg => 
+                msg.id === thinkingMessageId 
+                  ? { ...msg, content: fullResponse }
+                  : msg
+              )
+            )
+          },
+          (error: any) => {
+            console.error("Streaming error:", error)
+            // Replace thinking message with error
+            setMessages(prev => 
+              prev.map(msg => 
+                msg.id === thinkingMessageId 
+                  ? { ...msg, content: "Sorry, I encountered an error while processing your request." }
+                  : msg
+              )
+            )
+          },
+          () => {
+            // Stream completed - convert thinking message to regular message
+            setMessages(prev => 
+              prev.map(msg => 
+                msg.id === thinkingMessageId 
+                  ? { 
+                      ...msg, 
+                      id: `ai-${Date.now()}`, // Give it a proper ID
+                      content: fullResponse || "No response received."
+                    }
+                  : msg
+              )
+            )
+          }
+        )
+      } catch (error) {
+        console.error("Failed to start streaming:", error)
+        // Replace thinking message with error
+        setMessages(prev => 
+          prev.map(msg => 
+            msg.id === thinkingMessageId 
+              ? { ...msg, content: "Sorry, I encountered an error while processing your request." }
+              : msg
+          )
+        )
+      }
+    },
+    []
   )
 
   const handleSubmit = useCallback(
@@ -354,6 +429,7 @@ export function useChat({ conversationId, initialLimit = 30 }: UseChatProps) {
       setInput,
       handleSubmit,
       sendMessage,
+      streamAIReply,
       isLoading,
       isLoadingOlder,
       clearMessages,
@@ -372,6 +448,7 @@ export function useChat({ conversationId, initialLimit = 30 }: UseChatProps) {
       input,
       handleSubmit,
       sendMessage,
+      streamAIReply,
       isLoading,
       isLoadingOlder,
       clearMessages,
