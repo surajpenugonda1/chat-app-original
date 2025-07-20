@@ -416,7 +416,7 @@ export default function ChatPage({ params }: { params: Promise<{ personaId: stri
         })
       }
     }
-  }, [pagination.hasPrevious, isLoadingOlder, loadOlderMessages, toast])
+  }, [pagination.hasPrevious, isLoadingOlder, loadOlderMessages])
   
   const handleSearchMessages = useCallback(async (query: string) => {
     try {
