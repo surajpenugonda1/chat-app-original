@@ -1,30 +1,15 @@
-# Next.js chat application
-
-*Automatically synced with your [v0.dev](https://v0.dev) deployments*
-
-[![Deployed on Vercel](https://img.shields.io/badge/Deployed%20on-Vercel-black?style=for-the-badge&logo=vercel)](https://vercel.com/surajpenugonda98-9493s-projects/v0-next-js-chat-application)
-[![Built with v0](https://img.shields.io/badge/Built%20with-v0.dev-black?style=for-the-badge)](https://v0.dev/chat/projects/r1LKqVi7TKm)
+# My Vercel Project
 
 ## Overview
 
-This repository will stay in sync with your deployed chats on [v0.dev](https://v0.dev).
-Any changes you make to your deployed app will be automatically pushed to this repository from [v0.dev](https://v0.dev).
+This is a project deployed on Vercel.
 
 ## Deployment
 
 Your project is live at:
 
-**[https://vercel.com/surajpenugonda98-9493s-projects/v0-next-js-chat-application](https://vercel.com/surajpenugonda98-9493s-projects/v0-next-js-chat-application)**
+**[https://build-j9wp-4smhu5cx6-suraj-penugondas-projects.vercel.app/](https://build-j9wp-4smhu5cx6-suraj-penugondas-projects.vercel.app/)**
 
-## Build your app
+You can find the project details on Vercel at:
 
-Continue building your app on:
-
-**[https://v0.dev/chat/projects/r1LKqVi7TKm](https://v0.dev/chat/projects/r1LKqVi7TKm)**
-
-## How It Works
-
-1. Create and modify your project using [v0.dev](https://v0.dev)
-2. Deploy your chats from the v0 interface
-3. Changes are automatically pushed to this repository
-4. Vercel deploys the latest version from this repository
+**[https://vercel.com/suraj-penugondas-projects/build-j9wp](https://vercel.com/suraj-penugondas-projects/build-j9wp)**
